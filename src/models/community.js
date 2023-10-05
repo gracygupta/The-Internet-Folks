@@ -14,6 +14,7 @@ const communitySchema = new mongoose.Schema(
     },
     owner: { 
         type: mongoose.Schema.Types.String,
+        required: true,
         ref: "User"
     },
   },
