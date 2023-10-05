@@ -3,6 +3,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const logger = require("morgan");
+const cookieParser = require('cookie-parser')
 require("dotenv").config();
 require("./db/conn");
 
@@ -12,6 +13,7 @@ const app = express();
 //middlewares
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cookieParser())
 app.use(logger("dev"));
 
 //Headers Accepted
@@ -39,6 +41,12 @@ app.get("/", (req, res) => {
     });
 });
 
+//routes
+const auth = require("./router/auth");
+const role = require("./router/role");
+app.use("/v1/auth", auth);
+app.use("/v1/role", role);
+
 //custom middlewares
 app.use((req, res) => {
     res.status(404).send("404 Not Found");
@@ -48,6 +56,9 @@ app.use((req, res) => {
 app.use(function (req, res, next) {
     next(createError(404));
 });
+
+
+
 
 //port listening
 app.listen(port, () => {
