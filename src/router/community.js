@@ -27,4 +27,19 @@ router.get(
     "/",
      communityController.getAllCommunity );
 
+// @route   GET /
+// @desc    List all the members of a community with pagination
+// @access  Private
+router.get(
+    "/:id/members",
+    communityController.getAllMembers);
+
+// @route   GET /
+// @desc    List all the owned communities with pagination
+// @access  Private
+router.get(
+    "/me/owner",
+    checkLogin,
+    communityController.getMyCommunity);
+
 module.exports = router;
