@@ -34,13 +34,22 @@ exports.signUp = async (req, res) => {
           password: hashedPassword,
         })
           .then((doc) => {
-            signCookie(doc)
+
+            const filteredDoc = {
+                _id: doc._id,
+                name: doc.name,
+                email: doc.email,
+                createdAt: doc.createdAt,
+                updatedAt: doc.updatedAt
+              };
+              
+            signCookie(filteredDoc)
               .then((token) => {
                 res.cookie("authtoken", token);
                 res.status(200).json({
                   status: true,
                   content: {
-                    data: doc,
+                    data: filteredDoc,
                   },
                   meta: {
                     access_token: "Cookie based authentication is used",
@@ -61,6 +70,9 @@ exports.signUp = async (req, res) => {
   });
 };
 
-exports.login = async (req, res) => {};
+exports.login = async (req, res) => {
+    const {email, password} = req.body;
+
+};
 
 exports.myDetails = async (req, res) => {};
