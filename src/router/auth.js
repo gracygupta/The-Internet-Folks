@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { body } = require("express-validator");
 
-const utilController = require("../middlewares/utilController");
+const utilController = require("../middlewares/requestValidator");
 const authController = require("../controllers/authController");
 
 // @route   POST /signup
@@ -23,14 +23,25 @@ router.post(
       .exists()
       .isLength({ min: 6 }),
   ],
-  utilController.validateRequest,
+  utilController.validateSignup,
   authController.signUp
 );
 
 // @route   POST /signin
 // @desc    Login user and return jwt and user object
 // @access  Public
-// router.post("/signup", );
+router.post("/signin",
+[
+    body("email", "Email is required.")
+      .exists()
+      .isEmail()
+      .custom(utilController.isUserExist),
+    body("password", "Password is required.")
+      .exists()
+  ],
+  utilController.validateSignin,
+  authController.signin
+  );
 
 // @route   GET /me
 // @desc    Return the details of the currently signed in user
