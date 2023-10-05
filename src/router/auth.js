@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { body } = require("express-validator");
 
-const utilController = require("../middlewares/utilController").validateRequest;
+const utilController = require("../middlewares/utilController");
 const authController = require("../controllers/authController");
 
 // @route   POST /signup
@@ -11,11 +11,19 @@ const authController = require("../controllers/authController");
 router.post(
   "/signup",
   [
-    body("name", "name is required").exists().isString().isLength({ min: 2 }),
-    body("email", "email is required").exists().isEmail(),
-    body("password", "password is required (min char: 6)").exists().isLength({ min: 6 }),
+    body("name", "Name should be at least 2 characters.")
+      .exists()
+      .isString()
+      .isLength({ min: 2 }),
+    body("email", "Email is required.")
+      .exists()
+      .isEmail()
+      .custom(utilController.isEmailUnique),
+    body("password", "Password should be at least 2 characters.")
+      .exists()
+      .isLength({ min: 6 }),
   ],
-  utilController,
+  utilController.validateRequest,
   authController.signUp
 );
 
