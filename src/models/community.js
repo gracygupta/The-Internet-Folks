@@ -21,6 +21,11 @@ const communitySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+communitySchema.pre("save", function (next) {
+    this.slug = this.slug.toLowerCase();
+    next();
+  });
+
 const Community = new mongoose.model("Community", communitySchema);
 
 module.exports = Community;

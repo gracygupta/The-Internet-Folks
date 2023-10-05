@@ -4,7 +4,7 @@ const { body } = require("express-validator");
 
 const checkLogin = require("../middlewares/checkLogin").checkLogin;
 const utilController = require("../middlewares/requestValidator");
-const authController = require("../controllers/authController");
+const authController = require("../controllers/authControllers");
 
 // @route   POST /signup
 // @desc    Register user and return jwt and user object

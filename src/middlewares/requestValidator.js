@@ -69,3 +69,22 @@ exports.validateSignin = async (req, res, next) => {
       next();
     }
   };
+
+  exports.customValidator = async (req, res, next) => {
+    const errors = validationResult(req);
+  
+    if (!errors.isEmpty()) {
+      const formattedErrors = errors.array().map((error) => ({
+        param: error.path,
+        message: error.msg,
+        code: "INVALID_INPUT",
+      }));
+
+      return res.status(400).json({
+        status: false,
+        errors: formattedErrors,
+      });
+    } else {
+      next();
+    }
+  };
