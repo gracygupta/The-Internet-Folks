@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { body } = require("express-validator");
 
+const checkLogin = require("../middlewares/checkLogin").checkLogin;
 const utilController = require("../middlewares/requestValidator");
 const authController = require("../controllers/authController");
 
@@ -46,6 +47,6 @@ router.post("/signin",
 // @route   GET /me
 // @desc    Return the details of the currently signed in user
 // @access  Private
-// router.get"/me", );
+router.get("/me", checkLogin, authController.myDetails);
 
 module.exports = router;

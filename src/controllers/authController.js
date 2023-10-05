@@ -8,7 +8,7 @@ const signCookie = (user) => {
   return new Promise((resolve, reject) => {
     jwt.sign(
       {
-        data: user._id,
+        data: user.id,
       },
       process.env.PRIVATE_KEY,
       { expiresIn: "24h" },
@@ -36,11 +36,10 @@ exports.signUp = async (req, res) => {
           })
             .then((doc) => {
               const filteredDoc = {
-                _id: doc._id,
+                id: doc._id,
                 name: doc.name,
                 email: doc.email,
-                createdAt: doc.createdAt,
-                updatedAt: doc.updatedAt,
+                created_at: doc.createdAt,
               };
 
               signCookie(filteredDoc)
@@ -121,11 +120,10 @@ exports.signin = async (req, res) => {
       });
     } else {
       const filteredDoc = {
-        _id: user._id,
+        id: user._id,
         name: user.name,
         email: user.email,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
+        created_at: user.createdAt,
       };
       signCookie(filteredDoc)
         .then((token) => {
@@ -160,4 +158,31 @@ exports.signin = async (req, res) => {
   }
 };
 
-exports.myDetails = async (req, res) => {};
+exports.myDetails = async (req, res) => {
+  try {
+    const filteredDoc = {
+        id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        created_at: req.user.createdAt,
+      };
+    return res.status(200).json({
+      status: true,
+      content: {
+        data: filteredDoc,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      errors: [
+        {
+          param: "internal_error",
+          message: "Internal server error",
+          code: "INTERNAL_ERROR",
+        },
+      ],
+    });
+  }
+};
