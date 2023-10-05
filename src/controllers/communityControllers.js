@@ -52,3 +52,61 @@ exports.createCommunity = async (req, res) => {
     });
   }
 };
+
+exports.getAllCommunity = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 10;
+
+    const skip = (page - 1) * pageSize;
+
+    const data = await Community.find().skip(skip).limit(pageSize).populate({
+      path: "owner",
+      select: "_id name",
+    });
+
+    const formattedData = data.map((ele) => ({
+      id: ele._id.toString(),
+      name: ele.name,
+      slug: ele.slug,
+      owner: {
+        id: ele.owner._id.toString(),
+        name: ele.owner.name,
+      },
+      created_at: ele.createdAt,
+      updated_at: ele.updatedAt,
+    }));
+
+    const total = await Community.count();
+
+    const totalPages = Math.ceil(total / pageSize);
+
+    const paginationMeta = {
+      total: total,
+      pages: totalPages,
+      page: page,
+    };
+
+    const response = {
+      status: true,
+      content: {
+        meta: paginationMeta,
+        data: formattedData,
+      },
+    };
+
+    res.status(200).json(response);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      errors: [
+        {
+          param: "internal_error",
+          message: "Internal server error",
+          code: "INTERNAL_ERROR",
+        },
+      ],
+    });
+  }
+};

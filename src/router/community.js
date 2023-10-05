@@ -20,4 +20,11 @@ router.post(
       ],
       utilController.customValidator, communityController.createCommunity );
 
+// @route   GET /
+// @desc    List all the existing community with pagination.
+// @access  Private
+router.get(
+    "/",
+     communityController.getAllCommunity );
+
 module.exports = router;
