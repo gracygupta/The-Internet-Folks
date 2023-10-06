@@ -7,12 +7,18 @@ require("dotenv").config();
 exports.createCommunity = async (req, res) => {
   try {
     const { name } = req.body;
-    Community.create({
+    await Community.create({
       name: name,
       slug: name,
       owner: req.user._id,
     })
-      .then((doc) => {
+      .then(async(doc) => {
+        const role = await Role.findOne({name: "Community Admin"});
+        await Member.create({
+            community: doc._id,
+            user: req.user._id,
+            role: role._id
+        })
         filteredData = {
           id: doc._id,
           name: doc.name,
