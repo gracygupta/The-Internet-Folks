@@ -141,57 +141,118 @@ exports.getAllCommunity = async (req, res) => {
 
 exports.getAllMembers = async (req, res) => {
   try {
+    
+    const slug = req.params.id;
     var page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
 
-    const total = await Community.count();
-    const totalPages = Math.ceil(total / pageSize);
-
-    if (page > totalPages) page = 1;
-
-    const skip = (page - 1) * pageSize;
-
-    const data = await Member.find({ community: req.params.id }) //access using slug
-      .skip(skip)
-      .limit(pageSize)
-      .populate({
-        path: "user",
-        select: "_id name",
+    const pipeline = [
+        {
+              $match: {
+               'slug': slug,
+              },
+            },
+        {
+              $lookup: {
+                from: 'members',
+                localField: '_id',
+                foreignField: 'community',
+                as: 'communityMembers',
+              },
+            },
+        {
+              $unwind: '$communityMembers',
+            },
+            {
+              $lookup: {
+                from: 'roles',
+                localField: 'communityMembers.role',
+                foreignField: '_id',
+                as: 'roleDetails',
+              },
+            },
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'communityMembers.user',
+                foreignField: '_id',
+                as: 'userDetails',
+              },
+            },
+        {
+              $unwind: '$userDetails',
+            },
+        {
+              $unwind: '$roleDetails',
+            },
+        {
+              $project: {
+                _id:0,
+                id: '$communityMembers._id', 
+                community: '$communityMembers.community',
+                role: {
+                  _id: '$roleDetails._id',
+                  name: '$roleDetails.name',
+                },
+                user: {
+                  _id: '$userDetails._id',
+                  name: '$userDetails.name',
+                },
+                created_at: '$createdAt'
+              },
+            },
+        {
+              $facet: {
+                paginatedData: [
+                  { $skip: (page - 1) * pageSize },
+                  { $limit: pageSize },
+                ],
+                totalCount: [
+                  {
+                    $count: 'total',
+                  },
+                ],
+              },
+            },
+         {
+              $unwind: '$totalCount',
+            }
+      ];
+    
+    // Execute the aggregation pipeline
+    Community.aggregate(pipeline)
+      .exec()
+      .then((results) => {
+        const paginatedData = results[0].paginatedData;
+        const totalCount = results[0].totalCount ? results[0].totalCount.total : 0;
+    
+        // Return the paginated data and total count
+        return res.status(200).json({
+          status: true,
+          content: {
+            data: paginatedData,
+            meta: {
+              total: totalCount,
+              pages: Math.ceil(totalCount / pageSize),
+              page: page,
+            },
+          },
+        });
       })
-      .populate({
-        path: "role",
-        select: "_id name",
+      .catch((error) => {
+        console.error('Error executing aggregation pipeline:', error);
+        return res.status(500).json({
+          status: false,
+          errors: [
+            {
+              param: 'internal_error',
+              message: 'Internal server error',
+              code: 'INTERNAL_ERROR',
+            },
+          ],
+        });
       });
-
-    const formattedData = data.map((ele) => ({
-      id: ele._id.toString(),
-      community: ele.community.toString(),
-      user: {
-        id: ele.user._id.toString(),
-        name: ele.user.name,
-      },
-      role: {
-        id: ele.role._id.toString(),
-        name: ele.role.name,
-      },
-      created_at: ele.createdAt,
-    }));
-
-    const paginationMeta = {
-      total: total,
-      pages: totalPages,
-      page: page,
-    };
-
-    const response = {
-      status: true,
-      content: {
-        meta: paginationMeta,
-        data: formattedData,
-      },
-    };
-
-    res.status(200).json(response);
+    
   } catch (err) {
     console.error(err);
     return res.status(500).json({
