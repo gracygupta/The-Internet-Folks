@@ -50,7 +50,7 @@ exports.signUp = async (req, res) => {
                       data: filteredDoc,
                     },
                     meta: {
-                      access_token: "Cookie based authentication is used",
+                      access_token: "", //Cookie based auth is used
                     },
                   });
                 })
