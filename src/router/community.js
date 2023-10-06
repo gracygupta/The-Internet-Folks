@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { body } = require("express-validator");
 
-const checkLogin = require("../middlewares/checkLogin").checkLogin;
+const checkLogin = require("../middlewares/checkUser").checkLogin;
 const utilController = require("../middlewares/requestValidator");
 const communityController = require("../controllers/communityControllers");
 
@@ -40,6 +40,14 @@ router.get(
 router.get(
     "/me/owner",
     checkLogin,
-    communityController.getMyCommunity);
+    communityController.getOwnedCommunity);
+
+// @route   GET /
+// @desc    List all the joined communities with pagination
+// @access  Private
+router.get(
+    "/me/member",
+    checkLogin,
+    communityController.getJoinedCommunity);
 
 module.exports = router;

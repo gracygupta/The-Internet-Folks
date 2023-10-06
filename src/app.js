@@ -41,23 +41,26 @@ app.get("/", (req, res) => {
     });
 });
 
-// //custom middlewares
-// app.use((req, res) => {
-//     res.status(404).send("404 Not Found");
-// });
-
-// // catch 404 and forward to error handler
-// app.use(function (req, res, next) {
-//     next(createError(404));
-// });
-
 //routes
 const authRoutes = require("./router/auth");
 const roleRoutes = require("./router/role");
 const communityRoutes = require("./router/community");
+const memberRoutes = require("./router/member");
 app.use("/v1/auth", authRoutes);
 app.use("/v1/community", communityRoutes);
+app.use("/v1/member", memberRoutes);
 app.use("/v1/role", roleRoutes);
+
+
+//custom middlewares
+app.use((req, res) => {
+    res.status(404).send("404 Not Found");
+});
+
+// catch 404 and forward to error handler
+app.use(function (req, res, next) {
+    next(createError(404));
+});
 
 //port listening
 app.listen(port, () => {
