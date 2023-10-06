@@ -212,7 +212,7 @@ exports.getOwnedCommunity = async (req, res) => {
     let page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
 
-    const total = await Community.count();
+    const total = await Community.countDocuments({ owner: req.user._id });
     const totalPages = Math.ceil(total / pageSize);
 
     if (page > totalPages) page = 1;
@@ -369,39 +369,80 @@ exports.isValidObjectId = function (stringId) {
 
 exports.addMember = async (req, res) => {
   try {
-    const { community, user, role } = req.body;
-    // check if user does not exist
-    User.findOne({ _id: user }).then(async (user) => {
-      if (!user) {
-        return res.status(400).json({
-          status: false,
-          errors: [
-            {
-              param: "user",
-              message: "User not found.",
-              code: "RESOURCE_NOT_FOUND",
-            },
-          ],
-        });
-      } else {
-        const userId = new mongoose.Types.ObjectId(user);
-        // check if member already exist
-        Member.findOne({ community, userId }).then(async (existingMember) => {
-          if (existingMember != null) {
-            return res.status(400).json({
-              status: false,
-              errors: [
-                {
-                  message: "User is already added in the community.",
-                  code: "RESOURCE_EXISTS",
-                },
-              ],
-            });
-          } else {
-            // Check if the role exists
-            Role.findById(role)
-              .then(async (existingRole) => {
-                if (existingRole == null) {
+    if (req.userRole.name == "Community Admin") {
+      const { community, user, role } = req.body;
+      // check if user does not exist
+      User.findOne({ _id: user }).then(async (user) => {
+        if (!user) {
+          return res.status(400).json({
+            status: false,
+            errors: [
+              {
+                param: "user",
+                message: "User not found.",
+                code: "RESOURCE_NOT_FOUND",
+              },
+            ],
+          });
+        } else {
+          const userId = new mongoose.Types.ObjectId(user);
+          const communityId = new mongoose.Types.ObjectId(community);
+          // check if member already exist
+          Member.findOne({ "$and":[{community:communityId},{user: userId}] }).then(async (existingMember) => {
+            if (existingMember != null) {
+              return res.status(400).json({
+                status: false,
+                errors: [
+                  {
+                    message: "User is already added in the community.",
+                    code: "RESOURCE_EXISTS",
+                  },
+                ],
+              });
+            } else {
+              // Check if the role exists
+              Role.findById(role)
+                .then(async (existingRole) => {
+                  if (existingRole == null) {
+                    return res.status(400).json({
+                      status: false,
+                      errors: [
+                        {
+                          param: "role",
+                          message: "Role not found.",
+                          code: "RESOURCE_NOT_FOUND",
+                        },
+                      ],
+                    });
+                  } else {
+                    const communityId = new mongoose.Types.ObjectId(community);
+                    const userId = new mongoose.Types.ObjectId(user);
+                    const roleId = new mongoose.Types.ObjectId(role);
+
+                    // Create a new member
+                    const newMember = await Member.create({
+                      community: communityId,
+                      user: userId,
+                      role: roleId,
+                    });
+
+                    const formattedData = {
+                      id: newMember._id.toString(),
+                      community: newMember.community.toString(),
+                      user: newMember.user.toString(),
+                      role: newMember.role.toString(),
+                      created_at: newMember.createdAt,
+                    };
+
+                    return res.status(200).json({
+                      status: true,
+                      content: {
+                        data: formattedData,
+                      },
+                    });
+                  }
+                })
+                .catch((err) => {
                   return res.status(400).json({
                     status: false,
                     errors: [
@@ -412,50 +453,22 @@ exports.addMember = async (req, res) => {
                       },
                     ],
                   });
-                } else {
-                  const communityId = new mongoose.Types.ObjectId(community);
-                  const userId = new mongoose.Types.ObjectId(user);
-                  const roleId = new mongoose.Types.ObjectId(role);
-
-                  // Create a new member
-                  const newMember = await Member.create({
-                    community: communityId,
-                    user: userId,
-                    role: roleId,
-                  });
-
-                  const formattedData = {
-                    id: newMember._id.toString(),
-                    community: newMember.community.toString(),
-                    user: newMember.user.toString(),
-                    role: newMember.role.toString(),
-                    created_at: newMember.createdAt,
-                  };
-
-                  return res.status(200).json({
-                    status: true,
-                    content: {
-                      data: formattedData,
-                    },
-                  });
-                }
-              })
-              .catch((err) => {
-                return res.status(400).json({
-                  status: false,
-                  errors: [
-                    {
-                      param: "role",
-                      message: "Role not found.",
-                      code: "RESOURCE_NOT_FOUND",
-                    },
-                  ],
                 });
-              });
-          }
-        });
-      }
-    });
+            }
+          });
+        }
+      });
+    } else {
+      return res.status(400).json({
+        status: false,
+        errors: [
+          {
+            message: "You are not authorized to perform this action.",
+            code: "NOT_ALLOWED_ACCESS",
+          },
+        ],
+      });
+    }
   } catch (err) {
     console.error(err);
     return res.status(500).json({

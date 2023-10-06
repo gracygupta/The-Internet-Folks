@@ -1,4 +1,5 @@
 const User = require("../models/user");
+const Member = require("../models/member");
 const Community = require("../models/community");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
@@ -52,37 +53,15 @@ exports.checkLogin = async (req, res, next) => {
   }
 };
 
-exports.checkAdmin = async (req, res, next) => {
+exports.checkCommunityExistence = async (req, res, next) => {
   try {
-    const community = req.body.community;
-    await Community.findById({ _id: community }).then((community) => {
-      if (!community) {
-        return res.status(400).json({
-          status: false,
-          errors: [
-            {
-              param: "community",
-              message: "Community not found.",
-              code: "RESOURCE_NOT_FOUND",
-            },
-          ],
-        });
-      }
-      if (community.owner == req.user._id) {
-        next();
-      } else {
-        return res.status(400).json({
-          status: false,
-          errors: [
-            {
-              message: "You are not authorized to perform this action.",
-              code: "NOT_ALLOWED_ACCESS",
-            },
-          ],
-        });
-      }
-    }).catch((err)=>{
-      return res.status(400).json({
+    const communityId = req.body.community;
+
+    // Check if the community exists
+    const existingCommunity = await Community.findById(communityId);
+
+    if (!existingCommunity) {
+      return res.status(404).json({
         status: false,
         errors: [
           {
@@ -92,7 +71,9 @@ exports.checkAdmin = async (req, res, next) => {
           },
         ],
       });
-    })
+    }
+    req.existingCommunity = existingCommunity;
+    next();
   } catch (err) {
     console.error(err);
     return res.status(500).json({
@@ -107,3 +88,50 @@ exports.checkAdmin = async (req, res, next) => {
     });
   }
 };
+
+exports.checkRole = async (req, res, next) => {
+  try {
+    const { community, user } = req.body;
+    const communityId = new mongoose.Types.ObjectId(community);
+    const userId = new mongoose.Types.ObjectId(req.user._id);
+
+    // Create a pipeline to fetch data from the Member collection
+    const pipeline = [
+      {
+        $match: {
+          community: communityId,
+          user: userId,
+        },
+      },
+      {
+        $lookup: {
+          from: "roles",
+          localField: "role",
+          foreignField: "_id",
+          as: "roleDetails",
+        },
+      },
+      {
+        $unwind: "$roleDetails",
+      }
+    ];
+
+    // Use the pipeline to aggregate data from the Member collection
+    const result = await Member.aggregate(pipeline);
+    req.userRole = result[0]? result[0].roleDetails: {name:"not defined"};
+    next();
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      errors: [
+        {
+          param: "internal_error",
+          message: "Internal server error",
+          code: "INTERNAL_ERROR",
+        },
+      ],
+    });
+  }
+};
+

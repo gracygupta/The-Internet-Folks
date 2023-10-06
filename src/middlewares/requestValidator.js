@@ -1,5 +1,6 @@
 const { validationResult } = require("express-validator");
 const User = require("../models/user");
+const mongoose = require("mongoose");
 
 // Custom validation function to check if the email already exists
 exports.isEmailUnique = async (email) => {
@@ -17,8 +18,8 @@ exports.isUserExist = async (email) => {
   }
 };
 
-exports.isValidObjectId = function(stringId) {
-  if(!mongoose.Types.ObjectId.isValid(stringId)){
+exports.isValidObjectId = function(value) {
+  if(mongoose.Types.ObjectId.isValid(value) == false){
     throw new Error("Invalid Id.");
   }
 }
