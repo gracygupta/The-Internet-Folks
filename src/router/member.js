@@ -35,12 +35,10 @@ router.post(
 // @route   DELETE /
 // @desc    Remove member from the community
 // @access  Private
-// checkUser.checkLogin,
-//   router.delete(
-//     "/:id",
-//     checkUser.checkLogin,
-//     checkUser.checkAdmin,
-//     communityController.removeMember
-//   );
+  router.delete(
+    "/:id",
+    checkUser.checkLogin,
+    communityController.removeMember
+  );
 
 module.exports = router;

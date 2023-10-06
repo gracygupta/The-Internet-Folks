@@ -388,7 +388,9 @@ exports.addMember = async (req, res) => {
           const userId = new mongoose.Types.ObjectId(user);
           const communityId = new mongoose.Types.ObjectId(community);
           // check if member already exist
-          Member.findOne({ "$and":[{community:communityId},{user: userId}] }).then(async (existingMember) => {
+          Member.findOne({
+            $and: [{ community: communityId }, { user: userId }],
+          }).then(async (existingMember) => {
             if (existingMember != null) {
               return res.status(400).json({
                 status: false,
@@ -484,4 +486,107 @@ exports.addMember = async (req, res) => {
   }
 };
 
-exports.removeMember = async (req, res) => {};
+exports.removeMember = async (req, res) => {
+  try {
+    const member = new mongoose.Types.ObjectId(req.params.id);
+    const user = new mongoose.Types.ObjectId(req.user._id);
+
+    const pipeline = [
+      {
+        $match: {
+          user: member,
+        },
+      },
+      {
+        $lookup: {
+          from: "members",
+          localField: "community",
+          foreignField: "community",
+          as: "doc2",
+        },
+      },
+      {
+        $unwind: "$doc2",
+      },
+      {
+        $match: {
+          "doc2.user": user,
+        },
+      },
+      {
+        $lookup: {
+          from: "roles",
+          localField: "doc2.role",
+          foreignField: "_id",
+          as: "roleDetails",
+        },
+      },
+      {
+        $unwind: "$roleDetails",
+      },
+      {
+        $match: {
+          "roleDetails.name": {
+            $in: ["Community Admin", "Community Moderator"],
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          user: 1,
+        },
+      },
+    ];
+
+    Member.aggregate(pipeline)
+      .exec()
+      .then(async (result) => {
+        if (result.length == 0) {
+          return res.status(400).json({
+            status: false,
+            errors: [
+              {
+                message: "Member not found.",
+                code: "RESOURCE_NOT_FOUND",
+              },
+            ],
+          });
+        } else {
+          // Extract the _id values of the documents to be deleted
+          const docIdsToDelete = result.map((doc) => doc._id);
+
+          // Delete the documents from the Member table
+          await Member.deleteMany({ _id: { $in: docIdsToDelete } });
+          return res.status(200).json({
+            status: true,
+          });
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        return res.status(500).json({
+          status: false,
+          errors: [
+            {
+              param: "internal_error",
+              message: "Internal server error",
+              code: "INTERNAL_ERROR",
+            },
+          ],
+        });
+      });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      errors: [
+        {
+          param: "internal_error",
+          message: "Internal server error",
+          code: "INTERNAL_ERROR",
+        },
+      ],
+    });
+  }
+};
