@@ -13,7 +13,7 @@ exports.createCommunity = async (req, res) => {
       owner: req.user._id,
     })
       .then(async(doc) => {
-        const role = await Role.findOne({name: "Community Admin"});
+        const role = await Role.findOne({name: "Community Admin".toLowerCase()});
         await Member.create({
             community: doc._id,
             user: req.user._id,
