@@ -82,8 +82,13 @@ exports.createCommunity = async (req, res) => {
 
 exports.getAllCommunity = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
+    let page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
+
+    const total = await Community.count();
+    const totalPages = Math.ceil(total / pageSize);
+
+    if(page>totalPages) page = 1;
 
     const skip = (page - 1) * pageSize;
 
@@ -103,10 +108,6 @@ exports.getAllCommunity = async (req, res) => {
       created_at: ele.createdAt,
       updated_at: ele.updatedAt,
     }));
-
-    const total = await Community.count();
-
-    const totalPages = Math.ceil(total / pageSize);
 
     const paginationMeta = {
       total: total,
@@ -140,8 +141,13 @@ exports.getAllCommunity = async (req, res) => {
 
 exports.getAllMembers = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
+    var page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
+
+    const total = await Community.count();
+    const totalPages = Math.ceil(total / pageSize);
+
+    if(page>totalPages) page = 1;
 
     const skip = (page - 1) * pageSize;
 
@@ -170,10 +176,6 @@ exports.getAllMembers = async (req, res) => {
       },
       created_at: ele.createdAt,
     }));
-
-    const total = await Community.count();
-
-    const totalPages = Math.ceil(total / pageSize);
 
     const paginationMeta = {
       total: total,
@@ -207,8 +209,13 @@ exports.getAllMembers = async (req, res) => {
 
 exports.getOwnedCommunity = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
+    let page = parseInt(req.query.page) || 1;
     const pageSize = parseInt(req.query.pageSize) || 10;
+
+    const total = await Community.count();
+    const totalPages = Math.ceil(total / pageSize);
+
+    if(page>totalPages) page = 1;
 
     const skip = (page - 1) * pageSize;
 
@@ -224,10 +231,6 @@ exports.getOwnedCommunity = async (req, res) => {
       created_at: ele.createdAt,
       updated_at: ele.updatedAt,
     }));
-
-    const total = await Community.countDocuments({ owner: req.user._id });
-
-    const totalPages = Math.ceil(total / pageSize);
 
     const paginationMeta = {
       total: total,
@@ -266,30 +269,65 @@ exports.getJoinedCommunity = async (req, res) => {
 
     const skip = (page - 1) * pageSize;
 
-    const data = await Member.find({ user: req.user._id })
-      .skip(skip)
-      .limit(pageSize)
-      .populate({
-        path: "community",
-        select: "_id name slug owner createdAt updatedAt",
-      })
-      .populate({
-        path: "owner",
-        select: "_id name",
-      });
+    const pipeline = [
+        {
+          $match: {
+            user: req.user._id,
+          },
+        },
+        {
+          $skip: skip,
+        },
+        {
+          $limit: pageSize,
+        },
+        {
+          $lookup: {
+            from: "communities", 
+            localField: "community",
+            foreignField: "_id",
+            as: "communityDetails",
+          },
+        },
+        {
+          $unwind: "$communityDetails",
+        },
+        // {
+        //   $lookup: {
+        //     from: "users",
+        //     localField: "communityDetails.owner",
+        //     foreignField: "_id",
+        //     as: "ownerDetails",
+        //   },
+        // },
+        // {
+        //   $unwind: "$ownerDetails",
+        // },
+        {
+          $project: {
+            _id: "$communityDetails._id",
+            name: "$communityDetails.name",
+            slug: "$communityDetails.slug",
+            ownerId: "$ownerDetails._id",
+            ownerName: "$ownerDetails.name",
+            created_at: "$communityDetails.createdAt",
+            updated_at: "$communityDetails.updatedAt"
+          },
+        },
+      ];
+      
+      const result = await Member.aggregate(pipeline);
 
-    console.log(data);
-
-    const formattedData = data.map((ele) => ({
+    const formattedData = result.map((ele) => ({
       id: ele._id.toString(),
       name: ele.name,
       slug: ele.slug,
       owner: {
-        id: ele.owner._id,
-        name: ele.owner.name,
+        id: ele.ownerId,
+        name: ele.ownerName,
       },
-      created_at: ele.createdAt,
-      updated_at: ele.updatedAt,
+      created_at: ele.created_at,
+      updated_at: ele.updated_at,
     }));
     const total = await Member.countDocuments({ user: req.user._id });
 
