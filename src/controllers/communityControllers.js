@@ -3,17 +3,35 @@ const Member = require("../models/member");
 const User = require("../models/user");
 const Role = require("../models/role");
 require("dotenv").config();
+const slugify = require("slugify");
+
+async function createUniqueSlug(name) {
+  let slug = slugify(name, { lower: true });
+
+  var existingCommunity = await Community.findOne({ slug: slug });
+  let counter = 1;
+  while (existingCommunity) {
+    slug = slugify(name, { lower: true });
+    slug = `${slug}-${counter}`;
+    existingCommunity = await Community.findOne({ slug: slug });
+    counter++;
+  }
+
+  return slug;
+}
+
 
 exports.createCommunity = async (req, res) => {
   try {
     const { name } = req.body;
+    let slug = await createUniqueSlug(name);
     await Community.create({
       name: name,
-      slug: name,
+      slug: slug,
       owner: req.user._id,
     })
       .then(async(doc) => {
-        const role = await Role.findOne({name: "Community Admin".toLowerCase()});
+        const role = await Role.findOne({name: "Community Admin"});
         await Member.create({
             community: doc._id,
             user: req.user._id,

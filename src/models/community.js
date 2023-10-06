@@ -5,7 +5,6 @@ const communitySchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      unique: true,
     },
     slug: {
       type: String,
@@ -22,7 +21,8 @@ const communitySchema = new mongoose.Schema(
 );
 
 communitySchema.pre("save", function (next) {
-    this.slug = this.slug.toLowerCase();
+    //replace white spaces with hiphens
+    this.slug = this.slug.toLowerCase().replace(/\s+/g, "-");
     next();
   });
 
