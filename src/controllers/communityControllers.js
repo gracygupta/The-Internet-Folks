@@ -4,6 +4,7 @@ const User = require("../models/user");
 const Role = require("../models/role");
 require("dotenv").config();
 const slugify = require("slugify");
+const mongoose = require("mongoose");
 
 async function createUniqueSlug(name) {
   let slug = slugify(name, { lower: true });
@@ -20,7 +21,6 @@ async function createUniqueSlug(name) {
   return slug;
 }
 
-
 exports.createCommunity = async (req, res) => {
   try {
     const { name } = req.body;
@@ -30,13 +30,13 @@ exports.createCommunity = async (req, res) => {
       slug: slug,
       owner: req.user._id,
     })
-      .then(async(doc) => {
-        const role = await Role.findOne({name: "Community Admin"});
+      .then(async (doc) => {
+        const role = await Role.findOne({ name: "Community Admin" });
         await Member.create({
-            community: doc._id,
-            user: req.user._id,
-            role: role._id
-        })
+          community: doc._id,
+          user: req.user._id,
+          role: role._id,
+        });
         filteredData = {
           id: doc._id,
           name: doc.name,
@@ -88,7 +88,7 @@ exports.getAllCommunity = async (req, res) => {
     const total = await Community.count();
     const totalPages = Math.ceil(total / pageSize);
 
-    if(page>totalPages) page = 1;
+    if (page > totalPages) page = 1;
 
     const skip = (page - 1) * pageSize;
 
@@ -147,7 +147,7 @@ exports.getAllMembers = async (req, res) => {
     const total = await Community.count();
     const totalPages = Math.ceil(total / pageSize);
 
-    if(page>totalPages) page = 1;
+    if (page > totalPages) page = 1;
 
     const skip = (page - 1) * pageSize;
 
@@ -215,7 +215,7 @@ exports.getOwnedCommunity = async (req, res) => {
     const total = await Community.count();
     const totalPages = Math.ceil(total / pageSize);
 
-    if(page>totalPages) page = 1;
+    if (page > totalPages) page = 1;
 
     const skip = (page - 1) * pageSize;
 
@@ -270,53 +270,53 @@ exports.getJoinedCommunity = async (req, res) => {
     const skip = (page - 1) * pageSize;
 
     const pipeline = [
-        {
-          $match: {
-            user: req.user._id,
-          },
+      {
+        $match: {
+          user: req.user._id,
         },
-        {
-          $skip: skip,
+      },
+      {
+        $skip: skip,
+      },
+      {
+        $limit: pageSize,
+      },
+      {
+        $lookup: {
+          from: "communities",
+          localField: "community",
+          foreignField: "_id",
+          as: "communityDetails",
         },
-        {
-          $limit: pageSize,
+      },
+      {
+        $unwind: "$communityDetails",
+      },
+      // {
+      //   $lookup: {
+      //     from: "users",
+      //     localField: "communityDetails.owner",
+      //     foreignField: "_id",
+      //     as: "ownerDetails",
+      //   },
+      // },
+      // {
+      //   $unwind: "$ownerDetails",
+      // },
+      {
+        $project: {
+          _id: "$communityDetails._id",
+          name: "$communityDetails.name",
+          slug: "$communityDetails.slug",
+          ownerId: "$ownerDetails._id",
+          ownerName: "$ownerDetails.name",
+          created_at: "$communityDetails.createdAt",
+          updated_at: "$communityDetails.updatedAt",
         },
-        {
-          $lookup: {
-            from: "communities", 
-            localField: "community",
-            foreignField: "_id",
-            as: "communityDetails",
-          },
-        },
-        {
-          $unwind: "$communityDetails",
-        },
-        // {
-        //   $lookup: {
-        //     from: "users",
-        //     localField: "communityDetails.owner",
-        //     foreignField: "_id",
-        //     as: "ownerDetails",
-        //   },
-        // },
-        // {
-        //   $unwind: "$ownerDetails",
-        // },
-        {
-          $project: {
-            _id: "$communityDetails._id",
-            name: "$communityDetails.name",
-            slug: "$communityDetails.slug",
-            ownerId: "$ownerDetails._id",
-            ownerName: "$ownerDetails.name",
-            created_at: "$communityDetails.createdAt",
-            updated_at: "$communityDetails.updatedAt"
-          },
-        },
-      ];
-      
-      const result = await Member.aggregate(pipeline);
+      },
+    ];
+
+    const result = await Member.aggregate(pipeline);
 
     const formattedData = result.map((ele) => ({
       id: ele._id.toString(),
@@ -363,74 +363,99 @@ exports.getJoinedCommunity = async (req, res) => {
   }
 };
 
+exports.isValidObjectId = function (stringId) {
+  return mongoose.Types.ObjectId.isValid(stringId);
+};
+
 exports.addMember = async (req, res) => {
   try {
-    const {community, user, role} = req.body;
-    //check if user does not found
-    await User.findById({_id: user}).then(user=>{
-        if(!user){
+    const { community, user, role } = req.body;
+    // check if user does not exist
+    User.findOne({ _id: user }).then(async (user) => {
+      if (!user) {
+        return res.status(400).json({
+          status: false,
+          errors: [
+            {
+              param: "user",
+              message: "User not found.",
+              code: "RESOURCE_NOT_FOUND",
+            },
+          ],
+        });
+      } else {
+        const userId = new mongoose.Types.ObjectId(user);
+        // check if member already exist
+        Member.findOne({ community, userId }).then(async (existingMember) => {
+          if (existingMember != null) {
             return res.status(400).json({
-                "status": false,
-                "errors": [
-                  {
-                    "param": "user",
-                    "message": "User not found.",
-                    "code": "RESOURCE_NOT_FOUND"
-                  }
-                ]
-              });
-        }
-    });
-    //check if member already exists
-    await Member.findOne({ community: community, user: user }).then((member)=>{
-        if(member){
-            return res.status(400).json({
-                "status": false,
-                "errors": [
-                  {
-                    "message": "User is already added in the community.",
-                    "code": "RESOURCE_EXISTS"
-                  }
-                ]
-              });
-        }
-    });
-    //check if role does not exist
-    await Role.findByID({_id: role}).then(role=>{
-        if(!role){
-            return res.status(400).json({
-                "status": false,
-                "errors": [
-                  {
-                    "param": "role",
-                    "message": "Role not found.",
-                    "code": "RESOURCE_NOT_FOUND"
-                  }
-                ]
-              });
-        }
-    });
-    await Member.create({
-        community: community,
-        user: user,
-        role:role
-    }).then((member)=>{
-        const formattedData = {
-            id: member._id.toString(),
-            community: member.community.toString(),
-            user : member.user.toString(),
-            role:member.role.toString(),
-            created_at: member.createdAt
-        }
-        return res.status(200).json(
-        {
-            "status": true,
-            "content": {
-              "data": formattedData
-            }
-          });
-    })
+              status: false,
+              errors: [
+                {
+                  message: "User is already added in the community.",
+                  code: "RESOURCE_EXISTS",
+                },
+              ],
+            });
+          } else {
+            // Check if the role exists
+            Role.findById(role)
+              .then(async (existingRole) => {
+                if (existingRole == null) {
+                  return res.status(400).json({
+                    status: false,
+                    errors: [
+                      {
+                        param: "role",
+                        message: "Role not found.",
+                        code: "RESOURCE_NOT_FOUND",
+                      },
+                    ],
+                  });
+                } else {
+                  const communityId = new mongoose.Types.ObjectId(community);
+                  const userId = new mongoose.Types.ObjectId(user);
+                  const roleId = new mongoose.Types.ObjectId(role);
 
+                  // Create a new member
+                  const newMember = await Member.create({
+                    community: communityId,
+                    user: userId,
+                    role: roleId,
+                  });
+
+                  const formattedData = {
+                    id: newMember._id.toString(),
+                    community: newMember.community.toString(),
+                    user: newMember.user.toString(),
+                    role: newMember.role.toString(),
+                    created_at: newMember.createdAt,
+                  };
+
+                  return res.status(200).json({
+                    status: true,
+                    content: {
+                      data: formattedData,
+                    },
+                  });
+                }
+              })
+              .catch((err) => {
+                return res.status(400).json({
+                  status: false,
+                  errors: [
+                    {
+                      param: "role",
+                      message: "Role not found.",
+                      code: "RESOURCE_NOT_FOUND",
+                    },
+                  ],
+                });
+              });
+          }
+        });
+      }
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({
@@ -445,3 +470,5 @@ exports.addMember = async (req, res) => {
     });
   }
 };
+
+exports.removeMember = async (req, res) => {};

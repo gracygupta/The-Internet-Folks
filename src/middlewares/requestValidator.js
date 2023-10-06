@@ -17,6 +17,12 @@ exports.isUserExist = async (email) => {
   }
 };
 
+exports.isValidObjectId = function(stringId) {
+  if(!mongoose.Types.ObjectId.isValid(stringId)){
+    throw new Error("Invalid Id.");
+  }
+}
+
 exports.validateSignup = async (req, res, next) => {
   const errors = validationResult(req);
 

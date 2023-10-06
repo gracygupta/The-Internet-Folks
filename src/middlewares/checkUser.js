@@ -1,6 +1,7 @@
 const User = require("../models/user");
 const Community = require("../models/community");
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 require("dotenv").config();
 
 exports.checkLogin = async (req, res, next) => {
@@ -67,7 +68,7 @@ exports.checkAdmin = async (req, res, next) => {
           ],
         });
       }
-      if (community.owner === req.user._id) {
+      if (community.owner == req.user._id) {
         next();
       } else {
         return res.status(400).json({
@@ -80,7 +81,18 @@ exports.checkAdmin = async (req, res, next) => {
           ],
         });
       }
-    });
+    }).catch((err)=>{
+      return res.status(400).json({
+        status: false,
+        errors: [
+          {
+            param: "community",
+            message: "Community not found.",
+            code: "RESOURCE_NOT_FOUND",
+          },
+        ],
+      });
+    })
   } catch (err) {
     console.error(err);
     return res.status(500).json({
