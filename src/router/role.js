@@ -23,6 +23,6 @@ router.post("/",
 // @route   GET /
 // @desc    List all the created roles with pagination
 // @access  Public
-// router.get("/", );
+router.get("/", roleController.getAllRoles);
 
 module.exports = router;
